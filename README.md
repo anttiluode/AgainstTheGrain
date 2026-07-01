@@ -10,7 +10,7 @@
 
 ## Where this came from
 
-I drove into Helsinki and back the unusual way — out by bike, home by bike, against the grain of the trip I usually take by train. In Keskuspuisto I took a few wrong turns on a route I know cold. Not because I had forgotten it. Because I was running it **backward**, and backward is not the same machine as forward run in reverse.
+I drove into Helsinki and back the unusual way — out by car, home by car, against the grain of the trip I usually take by train. In Keskuspuisto I took a few wrong turns on a route I know cold. Not because I had forgotten it. Because I was running it **backward**, and backward is not the same machine as forward run in reverse.
 
 That is the whole repo. The wrong turns are not a memory failure. They are the signature of a forward-built circuit being asked to run against its own arrow — and paying for it in instability, in a confidently-wrong internal predictor, and in a gate that opens on the wrong beats.
 
@@ -32,6 +32,8 @@ Reversing time **negates A and leaves S untouched**. So the reverse is not a ref
 1. **the dynamics** — forward contracts error, backward amplifies it (`01`);
 2. **the predictor** — a forward-trained mirror is confidently wrong in reverse, worse than no mirror (`02`);
 3. **the gate** — the accelerometer that opens the backward channel is causal and asymmetric, so it opens on the wrong beats when the input is reversed (`03`).
+
+But the arrow is only baked in when the route is held as a **worn 1D sequence**. Hold the same place as a **grid coordinate manifold** — the entorhinal torus — and reversal becomes nearly free (`04`). The cost of going backward is not a fact about "backward"; it is a fact about which map you are in.
 
 ---
 
@@ -72,6 +74,33 @@ The accelerometer, driven by one acceleration and its exact time-reversal (same 
 | **lead-time-keyed** (Park's 15 ms prior depolarisation) | same count 7 vs 8, but **38% of beats misaligned** | **[V]** not time-reversal-symmetric — accel fires **late**, its reverse fires **early**; same count, **wrong timing** |
 
 A gate tuned to the forward route opens on the wrong beats backward: silent where the surprise now is, firing where the road used to turn. And the fix is the parent line's fix — the arrow must be *generated* by causal asymmetric kinetics (V14), not read off a level (V13).
+
+### `reverse/04_the_substrate_decides.py` — the cost of reverse depends on which map you hold
+The **same round trip**, driven through two representations, with a small nudge injected at the turnaround.
+
+| substrate | step map | energy on return | closure error after a 0.001 nudge |
+|---|---|---|---|
+| **worn 1D sequence** (dissipative attractor) | cond **1.49** | pumps **+61** (uphill) | **8.8** — the nudge blows up |
+| **grid coordinate manifold** (toroidal phase code) | cond **1.00** (unitary) | **flat**, pump ~0 | **2.5e-3** — the nudge stays a nudge |
+
+**Reverse is ~3600× more error-prone in the worn sequence than in the grid**, for the identical journey. A torus has no preferred direction: advancing and retreating a grid phase are equally cheap and exactly invertible. A worn, dissipative route-attractor is cheap only in the direction it was worn. So "against the grain" is expensive in the *habitual* substrate and nearly free in the *coordinate* one — the wrong turns are the habitual substrate failing in reverse and forcing a fallback onto the grid, which can do reverse but only when deliberately driven, never on habit's autopilot.
+
+---
+
+## The two substrates — what the grid-cell sweep paper adds, and what it doesn't
+
+Vollan, Gardner, Moser & Moser (*Nature* 2025) recorded entorhinal–hippocampal ensembles and found that in each theta cycle the decoded position **sweeps outward** from the animal into the surroundings, with sweep direction **alternating left/right** on successive cycles (~80% of triplets), extending into **never-visited, inaccessible** locations, and **persisting through REM sleep**. The alternation is captured by an agent that simply **minimises overlap** with the space it has recently covered. A separate parasubiculum "internal direction" population drives the sweeps through conjunctive grid cells, whose projection onto pure grid cells is **asymmetric** — a directed phase offset aligned to the preferred direction (the bump-translation of attractor models).
+
+This is the empirical backbone for the distinction `04` makes. The grid manifold is a **flexible, omnidirectional coordinate system** — it can sweep any direction, including where the animal has never been. That is the reversal-free substrate. The worn route-replay is the reversal-costly one. The paper grounds that both exist; it does not itself assign them the roles "habit" and "deliberate navigation" — that mapping is the interpretation the wrong turns fit, and it is a **bet**, not a result.
+
+**On the analysis Gemini offered** (holding it to the same ledger as everything else here):
+
+- **"Koopman free-run = sweeps into never-visited space"** — the most defensible bridge. Both are an internal generative process extrapolating beyond the sensed data; the sweeps' persistence in REM is exactly a free-running latent. Call it a **[B]** that earns its keep.
+- **"tangent projector = overlap-minimising rule"** — a real shared motif: both are repulsion/decorrelation that spreads samples to cover a space. But one orthogonalises latent write-vectors and the other tiles physical 2D space with a moving beam. Family resemblance, not identity. **[B]**.
+- **"±ω conjugate eigenpairs = left/right alternation"** — this one is poetry, not mechanism. The paper's own favoured account of the alternation is **firing-rate adaptation** (Chu; Ji; Widloski & Foster), an overlap/fatigue dynamic — not a readout of the two rotation senses of a skew operator's eigenplane. A skew operator's ±ω is the two spin directions of *one* plane; the sweep alternation is a temporal switch between *two headings*. Suggestive resonance, but calling them "the same object" overclaims. **[K]** as an identity; at most a loose **[B]** as analogy.
+- **"running the hardware backward fights the asymmetric phase offset → the wrong turns"** — half right, and `04` is the correction. The *incremental translation* (conjunctive→grid) is genuinely directional, so path-integrating a step in reverse does fight it. But the grid *representation* as a whole is omnidirectional and reversal-cheap — so the catastrophic-reverse cost lives in the **worn sequence** substrate, not the grid. You don't run the grid backward; you re-aim the internal-direction signal and sweep the other way, cheaply. What's expensive is the habit.
+
+The honest one-line version: the paper confirms the brain has **both** substrates; it does not confirm that your skew operator *is* the sweep generator. The value it adds to this repo is the **second substrate** — the one where reverse is free — which is what `04` now measures.
 
 ---
 
