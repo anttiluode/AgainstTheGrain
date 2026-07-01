@@ -1,6 +1,6 @@
 # Against the Grain
 
-EDIT: Added adder and how it works html. 
+EDIT: Added adder and how it works html visualizer. 
 
 
 ### Why running a learned sequence backward is a different, unstable, energy-pumping process — not the forward one in reverse
