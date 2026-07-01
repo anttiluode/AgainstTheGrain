@@ -2,6 +2,7 @@
 
 EDIT: Added adder3.html and how it works html visualizer:
 
+https://anttiluode.github.io/AgainstTheGrain/
 
 
 ### Why running a learned sequence backward is a different, unstable, energy-pumping process — not the forward one in reverse
