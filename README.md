@@ -1,5 +1,8 @@
 # Against the Grain
 
+EDIT: Added adder and how it works html. 
+
+
 ### Why running a learned sequence backward is a different, unstable, energy-pumping process — not the forward one in reverse
 
 **PerceptionLab / Antti Luode, with Claude (Opus 4.8). Helsinki, June 2026.**
