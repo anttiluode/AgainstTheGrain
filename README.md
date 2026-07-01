@@ -10,7 +10,7 @@
 
 ## Where this came from
 
-I drove into Helsinki and back the unusual way — out by car, home by car, against the grain of the trip I usually take by train. In Keskuspuisto I took a few wrong turns on a route I know cold. Not because I had forgotten it. Because I was running it **backward**, and backward is not the same machine as forward run in reverse.
+I drove into Helsinki and back the unusual way — out by bike, home by bike, against the grain of the trip I usually take by train. In Keskuspuisto I took a few wrong turns on a route I know cold. Not because I had forgotten it. Because I was running it **backward**, and backward is not the same machine as forward run in reverse.
 
 That is the whole repo. The wrong turns are not a memory failure. They are the signature of a forward-built circuit being asked to run against its own arrow — and paying for it in instability, in a confidently-wrong internal predictor, and in a gate that opens on the wrong beats.
 
