@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Predictive Geometric Adder — Event-Driven</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#12161f; --panel2:#171c28; --line:#232938;
+    --fg:#e7ecf5; --dim:#8a93a8; --accent:#4fd1c5; --accent2:#f2b84b;
+    --fire:#4fd18a; --dead:#5a6072; --bad:#e6636b; --carry:#c084fc;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:radial-gradient(ellipse at 50% -10%, #182034 0%, var(--bg) 60%);
+    color:var(--fg); font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    padding:26px 20px 50px; min-height:100vh;
+  }
+  .wrap{max-width:1080px; margin:0 auto;}
+  h1{font-size:22px; margin:0 0 4px; font-weight:600; letter-spacing:.2px;}
+  .sub{color:var(--dim); font-size:13.5px; margin:0 0 22px; line-height:1.5;}
+  .sub code{color:var(--accent); background:#0e2b28; padding:1px 5px; border-radius:4px; font-size:12.5px;}
+
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin-bottom:16px;}
+  .panel h2{font-size:13px; text-transform:uppercase; letter-spacing:1.2px; color:var(--dim); margin:0 0 14px; font-weight:600;}
+
+  .controls{display:flex; flex-wrap:wrap; gap:22px; align-items:flex-end;}
+  .field{display:flex; flex-direction:column; gap:6px;}
+  .field label{font-size:12px; color:var(--dim);}
+  .field input[type=number]{
+    width:90px; background:var(--panel2); border:1px solid var(--line); color:var(--fg);
+    padding:7px 9px; border-radius:8px; font-size:15px; font-family:inherit;
+  }
+  .bits{display:flex; gap:3px; margin-top:2px;}
+  .bit-toggle{
+    width:22px; height:26px; border-radius:5px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--dim); font-size:12px; font-weight:600;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; user-select:none;
+    transition:.12s;
+  }
+  .bit-toggle.on{background:#123a34; color:var(--fire); border-color:#1d5c50;}
+  .bit-toggle:hover{border-color:var(--accent);}
+  .btnrow{display:flex; gap:8px;}
+  button{
+    background:var(--panel2); border:1px solid var(--line); color:var(--fg);
+    padding:9px 16px; border-radius:9px; font-size:13.5px; cursor:pointer; font-family:inherit;
+    transition:.12s;
+  }
+  button:hover{border-color:var(--accent); color:var(--accent);}
+  button.primary{background:linear-gradient(135deg,#1d6f63,#134a42); border-color:#1d6f63; color:#dffaf3;}
+  button.primary:hover{filter:brightness(1.12); color:#fff;}
+  button:disabled{opacity:.4; cursor:default;}
+  .speed{display:flex; flex-direction:column; gap:6px; min-width:130px;}
+  .speed input{width:100%;}
+
+  #stage{font-size:13px; color:var(--dim); margin-left:auto;}
+  #stage b{color:var(--accent2);}
+
+  .circuit-canvas{width:100%; height:340px; display:block; border-radius:10px; background:#0d111a;}
+
+  .legend{display:flex; gap:18px; flex-wrap:wrap; font-size:11.5px; color:var(--dim); margin-top:10px;}
+  .legend span{display:inline-flex; align-items:center; gap:6px;}
+  .dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
+
+  .stripwrap{overflow-x:auto;}
+  table.strip{border-collapse:collapse; width:100%; min-width:640px;}
+  table.strip th{font-size:11px; color:var(--dim); font-weight:600; text-align:center; padding:4px 0;}
+  table.strip td{
+    text-align:center; padding:8px 0; font-size:14px; border-top:1px solid var(--line);
+    font-variant-numeric:tabular-nums; color:var(--dim); width:11%;
+  }
+  table.strip col.active{background:#152233;}
+  .rowhead{text-align:left !important; padding-left:10px !important; color:var(--dim); font-size:11.5px; font-weight:600;}
+  .col-active{background:rgba(79,209,197,.10);}
+  .bitval{font-weight:700;}
+  .bitval.one{color:var(--fg);}
+  .bitval.zero{color:#3d4457;}
+  .carryval{color:var(--carry); font-weight:700;}
+  .sumval{color:var(--accent); font-weight:700;}
+  .pending{opacity:.28;}
+  .stateval{font-size:10px; font-weight:700; letter-spacing:1px;}
+  .state-sleep{color:var(--dead);}
+  .state-wake{color:var(--fire);}
+
+  .result{display:flex; gap:34px; flex-wrap:wrap; align-items:center; margin-top:16px;}
+  .result .big{font-size:26px; font-weight:700; letter-spacing:.3px;}
+  .result .lbl{font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:3px;}
+  .verify{display:flex; align-items:center; gap:8px; font-size:13px; padding:8px 14px; border-radius:9px; background:#0e2b28; border:1px solid #1d5c50; color:var(--fire);}
+  .verify.bad{background:#2b1013; border-color:#5c1d24; color:var(--bad);}
+
+  footer{color:var(--dim); font-size:11.5px; line-height:1.6; margin-top:6px;}
+  footer code{color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Predictive Event-Driven Adder</h1>
+  <p class="sub">An upgraded 8-bit ripple-carry architecture utilizing the <b>Dual-Substrate</b> mechanism and a <b>Spike-Rate Accelerometer</b>. The system assumes a default "habitual" sequence (silent mirror: sum=0). It bypasses computation entirely unless an upstream carry or active input violates the prediction. Only "surprises" trigger the active, energy-costly geometric resonators.</p>
+
+  <div class="panel">
+    <h2>Inputs</h2>
+    <div class="controls">
+      <div class="field">
+        <label>A (0&ndash;255)</label>
+        <input type="number" id="numA" min="0" max="255" value="5">
+        <div class="bits" id="bitsA"></div>
+      </div>
+      <div class="field">
+        <label>B (0&ndash;255)</label>
+        <input type="number" id="numB" min="0" max="255" value="3">
+        <div class="bits" id="bitsB"></div>
+      </div>
+      <div class="btnrow">
+        <button id="btnRandom">Randomize</button>
+        <button id="btnReset">Reset</button>
+      </div>
+      <div class="btnrow">
+        <button id="btnStep">Step</button>
+        <button class="primary" id="btnRun">Run all</button>
+      </div>
+      <div class="speed">
+        <label style="font-size:12px;color:var(--dim)">Settle speed</label>
+        <input type="range" id="speed" min="150" max="1400" value="650">
+      </div>
+      <div id="stage">theta cycle <b>-</b> / 8</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Current stage — full adder geometry</h2>
+    <canvas class="circuit-canvas" id="circuit" width="1040" height="340"></canvas>
+    <div class="legend">
+      <span><span class="dot" style="background:#3aa7ff"></span> input phasor a / carry-in</span>
+      <span><span class="dot" style="background:var(--accent2)"></span> input phasor b</span>
+      <span><span class="dot" style="background:var(--fire)"></span> active compute -> fires (bit 1)</span>
+      <span><span class="dot" style="background:var(--dead)"></span> habitual sleep -> bit 0</span>
+      <span><span class="dot" style="background:var(--carry)"></span> carry line</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Ripple Substrate Tracking (LSB first)</h2>
+    <div class="stripwrap">
+      <table class="strip" id="stripTable"></table>
+    </div>
+    <div class="result">
+      <div><div class="lbl">A</div><div class="big" id="resA">-</div></div>
+      <div><div class="lbl">+ B</div><div class="big" id="resB">-</div></div>
+      <div><div class="lbl">= Sum</div><div class="big" id="resSum">-</div></div>
+      <div><div class="lbl">Active Compute Cost</div><div class="big" id="resCost" style="color:var(--accent2)">0 gates</div></div>
+      <div class="verify" id="verify">awaiting run</div>
+    </div>
+  </div>
+
+  <footer>
+    The "Habitual Bypass" applies when <code>a=0, b=0, cin=0</code>. The predictive mirror correctly cancels the signal, preventing the <code>settle_dynamical()</code> ringing and leaving the gate at rest. Active inputs or rippled carries act as a <b>surprise</b> to the mirror, triggering the accelerometer and forcing the gate to settle dynamically, costing 5 geometric logic gates of compute per woke bit.
+  </footer>
+</div>
+
+<script>
+// ---------- exact port of gates.py / resonator_neuron.py ----------
+var GATE_CFG = {
+  XOR: { w:[1,1], bias:0,   lo:-0.1, hi:1.0  },
+  AND: { w:[1,1], bias:-2,  lo:3.0,  hi:99.0 },
+  OR:  { w:[1,1], bias:2.0, lo:-0.1, hi:3.0  }
+};
+function encodeBit(b){ return b===0 ? {re:1,im:0} : {re:-1,im:0}; }
+function gateCompute(kind, bits){
+  var cfg = GATE_CFG[kind];
+  var re = cfg.bias, im = 0;
+  bits.forEach(function(b,j){ var p = encodeBit(b); re += cfg.w[j]*p.re; im += cfg.w[j]*p.im; });
+  var amp = Math.hypot(re, im);
+  var fired = (amp >= cfg.lo - 1e-9 && amp <= cfg.hi + 1e-9) ? 1 : 0;
+  return { kind: kind, bits: bits, re: re, im: im, amp: amp, fired: fired, cfg: cfg };
+}
+function fullAdderBit(a, b, cin){
+  var axb  = gateCompute('XOR', [a, b]);
+  var sum  = gateCompute('XOR', [axb.fired, cin]);
+  var ab   = gateCompute('AND', [a, b]);
+  var cab  = gateCompute('AND', [cin, axb.fired]);
+  var cout = gateCompute('OR',  [ab.fired, cab.fired]);
+  return { axb: axb, sum: sum, ab: ab, cab: cab, cout: cout, a: a, b: b, cin: cin };
+}
+
+// ---------- state ----------
+var NB = 8;
+function numToBits(n){
+  var out = [];
+  for (var i=0;i<NB;i++) out.push((n>>i)&1);
+  return out;
+}
+function bitsToNum(bits){
+  var n=0; for(var i=0;i<bits.length;i++) n |= (bits[i]<<i); return n;
+}
+
+var bitsA = numToBits(5), bitsB = numToBits(3);
+var stageIndex = -1;
+var stageResults = new Array(NB).fill(null);
+var carryChain = new Array(NB+1).fill(null); carryChain[0] = 0;
+var running = false;
+var animId = null;
+var activeGatesCost = 0;
+
+// ---------- DOM: bit toggles ----------
+function renderBitToggles(containerId, bits, onChange){
+  var el = document.getElementById(containerId);
+  el.innerHTML = '';
+  for (var i=NB-1;i>=0;i--){
+    (function(i){
+      var d = document.createElement('div');
+      d.className = 'bit-toggle' + (bits[i] ? ' on':'');
+      d.textContent = bits[i];
+      d.title = 'bit ' + i;
+      d.onclick = function(){ bits[i] = bits[i]?0:1; onChange(); };
+      el.appendChild(d);
+    })(i);
+  }
+}
+
+function clamp(n){ return Math.max(0, Math.min(255, n)); }
+
+function syncFromNumbers(){
+  bitsA = numToBits(clamp(parseInt(document.getElementById('numA').value)||0));
+  bitsB = numToBits(clamp(parseInt(document.getElementById('numB').value)||0));
+  refreshBitUI();
+  resetStages();
+}
+
+function refreshBitUI(){
+  document.getElementById('numA').value = bitsToNum(bitsA);
+  document.getElementById('numB').value = bitsToNum(bitsB);
+  renderBitToggles('bitsA', bitsA, function(){ document.getElementById('numA').value = bitsToNum(bitsA); resetStages(); refreshBitUI(); });
+  renderBitToggles('bitsB', bitsB, function(){ document.getElementById('numB').value = bitsToNum(bitsB); resetStages(); refreshBitUI(); });
+}
+
+// ---------- strip table ----------
+function buildStripTable(){
+  var t = document.getElementById('stripTable');
+  var rows = [
+    {key:'state',label:'Substrate'},
+    {key:'a',    label:'A bit'},
+    {key:'b',    label:'B bit'},
+    {key:'cin',  label:'carry in'},
+    {key:'sum',  label:'sum bit'},
+    {key:'cout', label:'carry out'}
+  ];
+  var html = '<tr>';
+  html += '<th class="rowhead">bit</th>';
+  for(var i=NB-1;i>=0;i--) html += '<th data-col="'+i+'">'+i+'</th>';
+  html += '</tr>';
+  rows.forEach(function(r){
+    html += '<tr id="row-'+r.key+'"><td class="rowhead">'+r.label+'</td>';
+    for(var i=NB-1;i>=0;i--) html += '<td id="cell-'+r.key+'-'+i+'" class="pending">-</td>';
+    html += '</tr>';
+  });
+  t.innerHTML = html;
+}
+
+function updateStripCell(i){
+  var res = stageResults[i];
+  function setCell(key, val, cls){
+    var c = document.getElementById('cell-'+key+'-'+i);
+    c.textContent = val;
+    c.classList.remove('pending');
+    if (cls) c.className = cls;
+  }
+  
+  if (res){
+    setCell('state', res.isHabitual ? 'SLEEP' : 'WAKE', 'stateval ' + (res.isHabitual ? 'state-sleep' : 'state-wake'));
+    setCell('a', bitsA[i], 'bitval ' + (bitsA[i]?'one':'zero'));
+    setCell('b', bitsB[i], 'bitval ' + (bitsB[i]?'one':'zero'));
+    setCell('cin', carryChain[i], 'carryval');
+    setCell('sum', res.sum.fired, 'sumval');
+    setCell('cout', res.cout.fired, 'carryval');
+  }
+}
+
+function highlightColumn(i){
+  var els = document.querySelectorAll('table.strip td, table.strip th');
+  for (var k=0;k<els.length;k++) els[k].classList.remove('col-active');
+  if (i<0) return;
+  var cols = document.querySelectorAll('[data-col="'+i+'"]');
+  for (var k=0;k<cols.length;k++) cols[k].classList.add('col-active');
+  ['state','a','b','cin','sum','cout'].forEach(function(key){
+    var c = document.getElementById('cell-'+key+'-'+i);
+    if (c) c.classList.add('col-active');
+  });
+}
+
+// ---------- circuit canvas ----------
+var canvas = document.getElementById('circuit');
+var ctx = canvas.getContext('2d');
+var DPR = window.devicePixelRatio || 1;
+canvas.width = 1040*DPR; canvas.height = 340*DPR;
+canvas.style.width='1040px'; canvas.style.height='340px';
+ctx.scale(DPR,DPR);
+
+var NODES = {
+  a:    {x:70,  y:90},
+  b:    {x:70,  y:230},
+  cin:  {x:70,  y:310},
+  XOR1: {x:300, y:90,  label:'XOR', out:'a xor b'},
+  AND1: {x:300, y:250, label:'AND', out:'a and b'},
+  XOR2: {x:600, y:60,  label:'XOR', out:'SUM'},
+  AND2: {x:600, y:230, label:'AND', out:'cin and (a xor b)'},
+  OR1:  {x:880, y:150, label:'OR',  out:'CARRY OUT'}
+};
+
+function drawArrow(cx,cy,angle,len,color,width){
+  if (len < 0.5) { ctx.fillStyle=color; ctx.beginPath(); ctx.arc(cx,cy,2.2,0,7); ctx.fill(); return; }
+  var x2 = cx+Math.cos(angle)*len, y2 = cy+Math.sin(angle)*len;
+  ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(x2,y2); ctx.stroke();
+  var ah = 6, aa = 0.45;
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-ah*Math.cos(angle-aa), y2-ah*Math.sin(angle-aa));
+  ctx.lineTo(x2-ah*Math.cos(angle+aa), y2-ah*Math.sin(angle+aa));
+  ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+}
+
+function getCss(varName){
+  return getComputedStyle(document.body).getPropertyValue(varName).trim() || '#fff';
+}
+
+function drawGateNode(node, result, t, isHabitual){
+  var R = 46;
+  var scale = R/4.6;
+  ctx.save();
+  ctx.translate(node.x, node.y);
+
+  ctx.strokeStyle = '#1c2334'; ctx.lineWidth=1;
+  [1,2,3,4].forEach(function(v){ ctx.beginPath(); ctx.arc(0,0,Math.max(0,v*scale),0,7); ctx.stroke(); });
+
+  if (result){
+    var lo = result.cfg.lo, hi = Math.min(result.cfg.hi, 4.6);
+    ctx.save();
+    ctx.fillStyle = 'rgba(79,209,197,0.10)';
+    ctx.beginPath();
+    ctx.arc(0,0, Math.max(0, Math.max(lo,0)*scale), 0, 7);
+    ctx.arc(0,0, Math.max(0, hi*scale), 0, 7, true);
+    ctx.fill('evenodd');
+    ctx.restore();
+  }
+
+  ctx.beginPath(); ctx.arc(0,0,R+8,0,7);
+  ctx.strokeStyle = result ? (result.fired ? '#1d5c50' : '#2a2f3f') : '#232938';
+  ctx.lineWidth = 2; ctx.stroke();
+
+  if (result && !isHabitual){
+    var tt = Math.max(0, Math.min(1, t));
+    var easedT = 1 - Math.pow(1-tt, 3);
+    var inAngles = result.bits.map(function(b,j){ return (b===0?0:Math.PI) + (j-((result.bits.length-1)/2))*0.22; });
+    var cols = ['#3aa7ff', '#f2b84b'];
+    result.bits.forEach(function(b,j){
+      drawArrow(0,0, inAngles[j], 1.6*scale, cols[j%2], 2);
+    });
+    var angle = result.re >= 0 ? 0 : Math.PI;
+    var len = Math.max(0, Math.min(result.amp, 4.6) * scale * easedT);
+    var col = result.fired ? getCss('--fire') : getCss('--dead');
+    drawArrow(0,0, angle, len, col, 4);
+
+    ctx.beginPath();
+    ctx.arc(0,0, Math.max(0, Math.min(result.amp,4.6)*scale*easedT), 0, 7);
+    ctx.strokeStyle = col; ctx.globalAlpha=0.35; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.globalAlpha=1;
+  }
+
+  ctx.restore();
+
+  ctx.fillStyle = '#c7cede';
+  ctx.font = '600 12px Segoe UI, sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText(node.label, node.x, node.y+R+24);
+  ctx.fillStyle = '#5f6780';
+  ctx.font = '11px Segoe UI, sans-serif';
+  ctx.fillText(node.out, node.x, node.y+R+38);
+  if (result && !isHabitual){
+    ctx.fillStyle = result.fired ? '#4fd18a' : '#6d7488';
+    ctx.font='700 13px Segoe UI, sans-serif';
+    ctx.fillText('bit = '+result.fired, node.x, node.y-R-14);
+  }
+}
+
+function drawWire(x1,y1,x2,y2,color, active, isHabitual){
+  ctx.strokeStyle = active ? (isHabitual ? '#1c2334' : color) : '#232938';
+  ctx.lineWidth = active? 2 : 1.4;
+  ctx.beginPath();
+  var midx = (x1+x2)/2;
+  ctx.moveTo(x1,y1);
+  ctx.bezierCurveTo(midx,y1, midx,y2, x2,y2);
+  ctx.stroke();
+}
+
+function drawInputDot(node, val, color, isHabitual){
+  ctx.beginPath(); ctx.arc(node.x, node.y, 9, 0, 7);
+  var fillCol = val ? color : '#1a2030';
+  ctx.fillStyle = isHabitual ? '#1a2030' : fillCol;
+  ctx.strokeStyle = isHabitual ? '#232938' : color; 
+  ctx.lineWidth=2; ctx.stroke(); ctx.fill();
+  ctx.fillStyle='#aab1c4'; ctx.font='11px Segoe UI'; ctx.textAlign='right';
+  var lab = (node===NODES.a?'a':(node===NODES.b?'b':'cin'));
+  ctx.fillText(lab+' = '+val, node.x-16, node.y+4);
+}
+
+function drawCircuit(res, t, a, b, cin, isHabitual){
+  ctx.clearRect(0,0,1040,340);
+  
+  if (isHabitual) {
+      ctx.fillStyle = 'rgba(11, 14, 20, 0.7)';
+      ctx.fillRect(0,0,1040,340);
+      ctx.fillStyle = '#5a6072';
+      ctx.font = '700 24px Segoe UI';
+      ctx.textAlign = 'center';
+      ctx.fillText('HABITUAL BYPASS - MIRROR PREDICTING 0', 520, 170);
+  }
+
+  drawWire(NODES.a.x+9, NODES.a.y, NODES.XOR1.x-50, NODES.XOR1.y, '#3aa7ff', true, isHabitual);
+  drawWire(NODES.a.x+9, NODES.a.y, NODES.AND1.x-50, NODES.AND1.y, '#3aa7ff', true, isHabitual);
+  drawWire(NODES.b.x+9, NODES.b.y, NODES.XOR1.x-50, NODES.XOR1.y, '#f2b84b', true, isHabitual);
+  drawWire(NODES.b.x+9, NODES.b.y, NODES.AND1.x-50, NODES.AND1.y, '#f2b84b', true, isHabitual);
+  drawWire(NODES.cin.x+9, NODES.cin.y, NODES.XOR2.x-50, NODES.XOR2.y, '#c084fc', true, isHabitual);
+  drawWire(NODES.cin.x+9, NODES.cin.y, NODES.AND2.x-50, NODES.AND2.y, '#c084fc', true, isHabitual);
+  drawWire(NODES.XOR1.x+46, NODES.XOR1.y, NODES.XOR2.x-50, NODES.XOR2.y, '#8892ac', !!res, isHabitual);
+  drawWire(NODES.XOR1.x+46, NODES.XOR1.y, NODES.AND2.x-50, NODES.AND2.y, '#8892ac', !!res, isHabitual);
+  drawWire(NODES.AND1.x+46, NODES.AND1.y, NODES.OR1.x-54, NODES.OR1.y, '#8892ac', !!res, isHabitual);
+  drawWire(NODES.AND2.x+46, NODES.AND2.y, NODES.OR1.x-54, NODES.OR1.y, '#8892ac', !!res, isHabitual);
+
+  drawInputDot(NODES.a, a, '#3aa7ff', isHabitual);
+  drawInputDot(NODES.b, b, '#f2b84b', isHabitual);
+  drawInputDot(NODES.cin, cin, '#c084fc', isHabitual);
+
+  drawGateNode(NODES.XOR1, res?res.axb:null, t, isHabitual);
+  drawGateNode(NODES.AND1, res?res.ab:null, t, isHabitual);
+  drawGateNode(NODES.XOR2, res?res.sum:null, t, isHabitual);
+  drawGateNode(NODES.AND2, res?res.cab:null, t, isHabitual);
+  drawGateNode(NODES.OR1,  res?res.cout:null, t, isHabitual);
+}
+
+// ---------- stage stepping ----------
+function resetStages(){
+  stageIndex = -1;
+  activeGatesCost = 0;
+  stageResults = new Array(NB).fill(null);
+  carryChain = new Array(NB+1).fill(null); carryChain[0]=0;
+  buildStripTable();
+  highlightColumn(-1);
+  document.getElementById('stage').innerHTML = 'theta cycle <b>-</b> / 8';
+  document.getElementById('resA').textContent='-';
+  document.getElementById('resB').textContent='-';
+  document.getElementById('resSum').textContent='-';
+  document.getElementById('resCost').textContent='0 gates';
+  var v = document.getElementById('verify');
+  v.textContent = 'awaiting run'; v.className='verify';
+  running=false;
+  if (animId) cancelAnimationFrame(animId);
+  drawCircuit(null, 0, bitsA[0], bitsB[0], 0, false);
+  document.getElementById('btnStep').disabled=false;
+  document.getElementById('btnRun').disabled=false;
+}
+
+function computeStage(i){
+  var cin = carryChain[i];
+  var res = fullAdderBit(bitsA[i], bitsB[i], cin);
+  stageResults[i] = res;
+  carryChain[i+1] = res.cout.fired;
+  return res;
+}
+
+function animateStage(i, onDone){
+  var a = bitsA[i], b = bitsB[i], cin = carryChain[i];
+  // Substrate check: Is this bit completely silent/predictable?
+  var isHabitual = (a === 0 && b === 0 && cin === 0);
+
+  var res = computeStage(i);
+  res.isHabitual = isHabitual;
+
+  highlightColumn(i);
+
+  if (isHabitual) {
+    // Habitual substrate: zero cost, bypass ringing, resolve instantly
+    document.getElementById('stage').innerHTML = 'theta cycle <b>'+(i+1)+'</b> / '+NB+' — <span style="color:var(--dim)">HABITUAL BYPASS (0 cost)</span>';
+    drawCircuit(res, 1, a, b, cin, true); 
+    updateStripCell(i);
+    stageIndex = i;
+    if (i === NB-1) finalizeResult();
+    if (onDone) setTimeout(onDone, 60); // fast skip
+    return;
+  }
+
+  // Cognitive substrate: accelerometer triggers, active compute cost applied
+  activeGatesCost += 5;
+  document.getElementById('resCost').textContent = activeGatesCost + " gates";
+  
+  var dur = parseInt(document.getElementById('speed').value);
+  var t0 = null;
+  document.getElementById('stage').innerHTML = 'theta cycle <b>'+(i+1)+'</b> / '+NB+' — <span style="color:var(--fire)">SURPRISE (accelerometer woke)</span>';
+  
+  function frame(now){
+    if (t0 === null) t0 = now;
+    var t = Math.max(0, Math.min(1, (now-t0)/dur));
+    drawCircuit(res, t, a, b, cin, false);
+    if (t<1){ animId = requestAnimationFrame(frame); }
+    else {
+      updateStripCell(i);
+      stageIndex = i;
+      if (i === NB-1) finalizeResult();
+      if (onDone) onDone();
+    }
+  }
+  animId = requestAnimationFrame(frame);
+}
+
+function finalizeResult(){
+  var a = bitsToNum(bitsA), b = bitsToNum(bitsB);
+  var sumBits = stageResults.map(function(r){ return r.sum.fired; });
+  var carryOut = carryChain[NB];
+  var computed = bitsToNum(sumBits) + carryOut*256;
+  document.getElementById('resA').textContent = a;
+  document.getElementById('resB').textContent = b;
+  document.getElementById('resSum').textContent = computed;
+  document.getElementById('resCost').textContent = activeGatesCost + " / 40 gates spent";
+  document.getElementById('stage').innerHTML = 'theta cycle <b>'+NB+'</b> / '+NB+' — done';
+  var v = document.getElementById('verify');
+  var ok = computed === (a+b);
+  v.textContent = ok ? ('verified — matches native '+a+' + '+b+' = '+(a+b)) : ('mismatch (got '+computed+', expected '+(a+b)+')');
+  v.className = 'verify' + (ok?'':' bad');
+  document.getElementById('btnStep').disabled = true;
+  document.getElementById('btnRun').disabled = true;
+}
+
+function stepOnce(){
+  if (stageIndex+1 >= NB) return;
+  document.getElementById('btnStep').disabled=true;
+  document.getElementById('btnRun').disabled=true;
+  animateStage(stageIndex+1, function(){
+    if (stageIndex+1 < NB){
+      document.getElementById('btnStep').disabled=false;
+      document.getElementById('btnRun').disabled=false;
+    }
+  });
+}
+
+function runAll(){
+  if (running) return;
+  running = true;
+  document.getElementById('btnStep').disabled=true;
+  document.getElementById('btnRun').disabled=true;
+  function next(){
+    if (stageIndex+1 >= NB){ running=false; return; }
+    animateStage(stageIndex+1, function(){
+      if (stageIndex+1 < NB) setTimeout(next, 90);
+      else running=false;
+    });
+  }
+  next();
+}
+
+// ---------- wire up controls ----------
+document.getElementById('numA').addEventListener('change', syncFromNumbers);
+document.getElementById('numB').addEventListener('change', syncFromNumbers);
+document.getElementById('btnRandom').addEventListener('click', function(){
+  document.getElementById('numA').value = Math.floor(Math.random()*256);
+  document.getElementById('numB').value = Math.floor(Math.random()*256);
+  syncFromNumbers();
+});
+document.getElementById('btnReset').addEventListener('click', resetStages);
+document.getElementById('btnStep').addEventListener('click', stepOnce);
+document.getElementById('btnRun').addEventListener('click', runAll);
+
+// ---------- init ----------
+refreshBitUI();
+resetStages();
+</script>
+</body>
+</html>

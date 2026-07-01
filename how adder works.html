@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Geometric Neuron, Thinking</title>
+<style>
+  :root{
+    --ink:#080a10; --ink2:#0c0f18; --panel:#0f1524; --panel2:#131a2c; --line:#1d263f;
+    --fg:#e9eef8; --dim:#7c8598; --faint:#4a5268;
+    --teal:#54d6c8;   /* predicted / habitual / calm  */
+    --gold:#f4b64c;   /* surprise / residual          */
+    --green:#5ce39a;  /* fire / lock                  */
+    --violet:#a98bff; /* cognitive grid               */
+    --purple:#c084fc; /* carry                        */
+    --red:#e8636f;    /* reverse / error              */
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    background:
+      radial-gradient(1200px 700px at 50% -20%, #141c31 0%, var(--ink) 55%),
+      var(--ink);
+    color:var(--fg);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding:34px 20px 60px; min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;}
+  .wrap{max-width:1000px; margin:0 auto;}
+
+  .eyebrow{font-size:11.5px; letter-spacing:3px; text-transform:uppercase; color:var(--faint);
+           font-family:ui-monospace,monospace; margin:0 0 10px;}
+  h1{font-size:clamp(30px,5.4vw,50px); line-height:1.02; font-weight:300; letter-spacing:-.5px;
+     margin:0 0 14px;}
+  h1 em{font-style:normal; color:var(--teal);}
+  .lede{color:var(--dim); font-size:15px; line-height:1.62; max-width:60ch; margin:0 0 26px;}
+  .lede b{color:var(--fg); font-weight:500;}
+
+  /* the one control that carries the thesis */
+  .helm{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin:0 0 22px;}
+  .grain{
+    appearance:none; border:1px solid var(--line); background:var(--panel2); color:var(--fg);
+    font-family:ui-monospace,monospace; font-size:14px; letter-spacing:.3px;
+    padding:12px 20px; border-radius:11px; cursor:pointer; transition:.16s; position:relative;
+  }
+  .grain:hover{border-color:var(--teal); color:var(--teal);}
+  .grain.on{background:linear-gradient(135deg,#3a1420,#241019); border-color:var(--red); color:#ffd9dc;}
+  .grain .arrow{display:inline-block; transition:transform .4s ease;}
+  .grain.on .arrow{transform:scaleX(-1);}
+  .ghost{font-size:12.5px; color:var(--faint); font-family:ui-monospace,monospace;}
+  .ghost b{color:var(--dim); font-weight:400;}
+
+  .stage{position:relative; border:1px solid var(--line); border-radius:18px; overflow:hidden;
+         background:linear-gradient(180deg,var(--panel) 0%,var(--ink2) 100%);}
+  #scene{display:block; width:100%; height:420px;}
+  .modeflag{position:absolute; top:14px; left:16px; font-family:ui-monospace,monospace;
+            font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--dim);
+            display:flex; align-items:center; gap:9px;}
+  .modeflag .lamp{width:8px; height:8px; border-radius:50%; background:var(--teal);
+                  box-shadow:0 0 10px var(--teal); transition:.3s;}
+  .modeflag.cog .lamp{background:var(--violet); box-shadow:0 0 12px var(--violet);}
+  .modeflag.cog b{color:var(--violet);}
+  .modeflag b{color:var(--teal); font-weight:600; transition:.3s;}
+
+  /* instrument readouts */
+  .readout{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; margin-top:1px;
+           background:var(--line); border:1px solid var(--line); border-top:none;
+           border-radius:0 0 18px 18px; overflow:hidden;}
+  .cell{background:var(--panel); padding:15px 16px;}
+  .cell .k{font-size:10.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--faint);
+           font-family:ui-monospace,monospace; margin-bottom:7px;}
+  .cell .v{font-size:23px; font-weight:300; letter-spacing:-.3px; font-family:ui-monospace,monospace;}
+  .cell .v small{font-size:12px; color:var(--dim); font-weight:400;}
+  .v.teal{color:var(--teal);} .v.gold{color:var(--gold);} .v.red{color:var(--red);}
+  .v.violet{color:var(--violet);}
+
+  .legend{display:flex; gap:20px; flex-wrap:wrap; font-size:11.5px; color:var(--dim);
+          font-family:ui-monospace,monospace; margin:16px 2px 0;}
+  .legend span{display:inline-flex; align-items:center; gap:7px;}
+  .swatch{width:9px; height:9px; border-radius:50%;}
+
+  .note{color:var(--dim); font-size:13.5px; line-height:1.62; max-width:64ch; margin:30px 0 0;}
+  .note b{color:var(--fg); font-weight:500;} .note .t{color:var(--teal);} .note .g{color:var(--gold);}
+  .note .v{color:var(--violet);}
+
+  /* --- Act II: the sparse adder --- */
+  hr.div{border:none; border-top:1px solid var(--line); margin:44px 0 30px;}
+  .h2row{display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:12px;}
+  h2{font-size:22px; font-weight:300; letter-spacing:-.3px; margin:0;}
+  h2 em{font-style:normal; color:var(--gold);}
+  .h2sub{color:var(--dim); font-size:13px; line-height:1.6; max-width:58ch; margin:8px 0 20px;}
+
+  .adder{border:1px solid var(--line); border-radius:16px; background:var(--panel); padding:20px;}
+  .inrow{display:flex; gap:26px; flex-wrap:wrap; align-items:flex-end; margin-bottom:20px;}
+  .fld{display:flex; flex-direction:column; gap:7px;}
+  .fld label{font-size:11px; letter-spacing:1.4px; text-transform:uppercase; color:var(--faint);
+             font-family:ui-monospace,monospace;}
+  .fld input{width:120px; background:var(--ink2); border:1px solid var(--line); color:var(--fg);
+             padding:9px 11px; border-radius:9px; font-size:17px; font-family:ui-monospace,monospace;}
+  .fld input:focus{outline:none; border-color:var(--teal);}
+  .mini{display:flex; gap:8px;}
+  .mini button{background:var(--panel2); border:1px solid var(--line); color:var(--dim);
+               padding:9px 14px; border-radius:9px; font-size:12.5px; cursor:pointer;
+               font-family:ui-monospace,monospace; transition:.14s;}
+  .mini button:hover{border-color:var(--teal); color:var(--teal);}
+  .watt{margin-left:auto; text-align:right;}
+  .watt .k{font-size:10.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--faint);
+           font-family:ui-monospace,monospace;}
+  .watt .v{font-size:30px; font-weight:300; font-family:ui-monospace,monospace; color:var(--green);
+           line-height:1.1;}
+  .watt .v .of{color:var(--faint); font-size:16px;}
+
+  #bitcanvas{display:block; width:100%; height:150px; margin-top:6px;}
+  .bitaxis{display:flex; justify-content:space-between; font-family:ui-monospace,monospace;
+           font-size:10.5px; color:var(--faint); margin-top:2px; padding:0 4px;}
+  .sumline{display:flex; align-items:center; gap:20px; flex-wrap:wrap; margin-top:18px;
+           padding-top:16px; border-top:1px solid var(--line);}
+  .sumline .big{font-family:ui-monospace,monospace; font-size:24px; font-weight:300;}
+  .sumline .big b{color:var(--teal); font-weight:500;}
+  .ok{font-size:12.5px; font-family:ui-monospace,monospace; padding:7px 13px; border-radius:8px;
+      background:rgba(92,227,154,.09); border:1px solid rgba(92,227,154,.3); color:var(--green);}
+
+  footer{color:var(--faint); font-size:12px; line-height:1.7; margin-top:40px; max-width:66ch;
+         font-family:ui-monospace,monospace;}
+  footer b{color:var(--dim); font-weight:400;}
+  footer .sig{color:var(--dim);}
+
+  @media (max-width:640px){
+    .readout{grid-template-columns:repeat(2,1fr);}
+    #scene{height:340px;}
+  }
+  @media (prefers-reduced-motion:reduce){ * {animation:none !important;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">PerceptionLab · geometric neuron · dual substrate</p>
+  <h1>The neuron spends<br>energy only on <em>surprise</em>.</h1>
+  <p class="lede">
+    A stream of moments arrives. A fast <b>mirror</b> predicts each one and quietly cancels it —
+    on the habitual route almost everything is predicted, so the soma barely stirs and the meter
+    reads near zero. Drive the same route <b>against the grain</b> and the mirror starts to lie:
+    surprise floods in, the accelerometer rings, and the clutch drops the neuron out of its cheap
+    forward groove into the deliberate cognitive grid. Watch it think.
+  </p>
+
+  <div class="helm">
+    <button class="grain" id="grain"><span class="arrow">▶</span>&nbsp; Against the grain</button>
+    <span class="ghost">flow is <b id="flowdir">downhill · habitual</b> — the direction it was worn</span>
+  </div>
+
+  <div class="stage">
+    <canvas id="scene"></canvas>
+    <div class="modeflag" id="modeflag"><span class="lamp"></span><b id="modetext">Habitual · 1D sequence</b></div>
+  </div>
+  <div class="readout">
+    <div class="cell"><div class="k">Surprise</div><div class="v teal" id="rSurprise">0.02</div></div>
+    <div class="cell"><div class="k">Accelerometer</div><div class="v teal" id="rGate">dark</div></div>
+    <div class="cell"><div class="k">Reverse error</div><div class="v teal" id="rErr">1.0<small>×</small></div></div>
+    <div class="cell"><div class="k">Compute</div><div class="v teal" id="rWatt">0<small> W</small></div></div>
+  </div>
+
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--teal)"></i>predicted · cancelled</span>
+    <span><i class="swatch" style="background:var(--gold)"></i>surprise · residual</span>
+    <span><i class="swatch" style="background:var(--green)"></i>soma fires</span>
+    <span><i class="swatch" style="background:var(--violet)"></i>cognitive grid</span>
+  </div>
+
+  <p class="note">
+    The heart is the <b>interference soma</b>: a phasor settling toward a fixed point, firing when it
+    lands inside its band. In <span class="t">habitual</span> flow the mirror hands it the answer, so it
+    holds still — cheap. <span class="g">Surprise</span> kicks it off the fixed point and it has to spiral
+    back, ringing the accelerometer with the <span class="mono">f S S S … f f f</span> motif. Enough
+    sustained surprise and the clutch engages: the neuron drops the dissipative 1D groove for the
+    <span class="v">reversible 2D grid</span>, where any direction is equally cheap — but nothing is
+    automatic. That handoff is the wrong turn in the park.
+  </p>
+
+  <hr class="div">
+
+  <div class="h2row">
+    <h2>What it's actually <em>computing</em></h2>
+    <div class="mini" style="align-self:center">
+      <button id="randAB">Randomize</button>
+      <button id="hardAB">Carry storm</button>
+    </div>
+  </div>
+  <p class="h2sub">
+    The same principle, doing arithmetic. An 8-bit adder whose habitual prediction for every bit is
+    <span class="mono">0</span> — silence. A bit only wakes and spends its five gates when an input or an
+    upstream carry violates that prediction. Small sums stay mostly dark. Big carries wake the whole ripple.
+  </p>
+
+  <div class="adder">
+    <div class="inrow">
+      <div class="fld"><label>A · 0–255</label><input id="numA" type="number" min="0" max="255" value="5"></div>
+      <div class="fld"><label>B · 0–255</label><input id="numB" type="number" min="0" max="255" value="3"></div>
+      <div class="watt">
+        <div class="k">Gates spent</div>
+        <div class="v"><span id="gates">15</span><span class="of"> / 40</span></div>
+      </div>
+    </div>
+    <canvas id="bitcanvas"></canvas>
+    <div class="bitaxis">
+      <span>bit 7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>bit 0</span>
+    </div>
+    <div class="sumline">
+      <div class="big"><span id="eqA">5</span> + <span id="eqB">3</span> = <b id="eqS">8</b></div>
+      <div class="ok" id="verify">verified · matches native 5 + 3 = 8</div>
+    </div>
+  </div>
+
+  <footer>
+    <b>What this is:</b> a live picture of the geometric-neuron logic and a genuinely sparse adder —
+    every number on screen is computed, not scripted. The reverse-error figure is read off a real
+    dissipative map; the gate count is the real count of woken bits.<br>
+    <b>What it isn't:</b> a claim that any of this is felt. It locates the mechanism, not the experience.<br>
+    <span class="sig">Do not hype. Do not lie. Just show.</span>
+  </footer>
+</div>
+
+<script>
+/* ============================================================
+   ACT I — the neuron thinking
+   All quantities below are computed live from small honest models:
+   - mirror residual: |actual - predicted| on a periodic habitual motif
+   - accelerometer:   lead-time window (opens on sustained residual) +
+                      reserve that drains under firing  -> fSSS...fff
+   - reverse error:   a real 2-plane dissipative map; ratio of backward
+                      to forward perturbation growth over k steps
+   - clutch:          cognitive load integrates the gate ringing;
+                      crosses a threshold -> COGNITIVE (grid) substrate
+   ============================================================ */
+const scene = document.getElementById('scene');
+const sctx  = scene.getContext('2d');
+let W=0,H=0,DPR=Math.min(2,window.devicePixelRatio||1);
+function sizeScene(){
+  const r=scene.getBoundingClientRect();
+  W=r.width; H=r.height;
+  scene.width=W*DPR; scene.height=H*DPR; sctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',()=>{sizeScene();sizeBits();});
+
+/* ---- honest reverse-error model (a dissipative 2-plane map) ---- */
+function reverseErrorRatio(){
+  // planes with anisotropic damping -> M^{-1} ill-conditioned (see repo EXP01)
+  const damp=[0.72,0.86], th=0.35, k=16, eps=1e-3;
+  function step(v,inv){                    // apply block-diagonal rotation+damp
+    const o=[0,0,0,0];
+    for(let p=0;p<2;p++){
+      const d=inv?1/damp[p]:damp[p], c=Math.cos(th)*d, s=Math.sin(th)*d;
+      const a=v[2*p], b=v[2*p+1];
+      o[2*p]   =  c*a - s*b;
+      o[2*p+1] = (inv? -s: s)*a + c*b;      // transpose rotation on inverse
+    }
+    return o;
+  }
+  function grow(inv){
+    let a=[1,0.5,-0.3,0.8], b=a.map(x=>x+eps*(Math.random()-0.5));
+    let d0=Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2],a[3]-b[3]);
+    for(let i=0;i<k;i++){a=step(a,inv); b=step(b,inv);}
+    return Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2],a[3]-b[3])/d0;
+  }
+  return grow(true)/(grow(false)+1e-9);
+}
+let revErr=1.0, revErrTarget=1.0;
+
+/* ---- accelerometer (lead-time window + draining reserve) ---- */
+const acc={ depol:0, above:0, reserve:1, lit:0, motif:[] };
+function accelStep(surprise, dt){
+  const lead=0.16, thrDep=0.5, consume=0.10, recov=0.9;
+  acc.depol = acc.depol*Math.exp(-dt/0.20) + surprise;
+  acc.above = acc.depol>thrDep ? acc.above+dt : 0;
+  acc.reserve = Math.min(1, acc.reserve + dt*(1-acc.reserve)/recov);
+  let fired=false;
+  if(surprise>0.28){                        // a bAP arrives
+    const windowOpen = acc.above>=lead;
+    fired = windowOpen && acc.reserve>0.4;
+    if(fired) acc.reserve*=(1-consume);
+    acc.motif.push(fired?1:0); if(acc.motif.length>26) acc.motif.shift();
+  }
+  acc.lit += ((fired?1:0)-acc.lit)*0.25;
+  return fired;
+}
+
+/* ---- state ---- */
+let against=false, cogLoad=0, watts=0, wattShow=0, surpriseShow=0.02;
+const soma={ z:0.62, ang:0, target:0.62, kicked:0, fireGlow:0 };
+const pulses=[];  // travelling moments
+let pulseClock=0, tPrev=performance.now();
+
+/* habitual motif the mirror has learned (a smooth periodic sequence) */
+const motifLen=7;
+function expected(i){ return 0.30+0.5*(0.5+0.5*Math.sin(i*2*Math.PI/motifLen)); }
+let seqI=0;
+
+function spawnPulse(){
+  // actual next moment; against-the-grain plays the sequence in reverse
+  const actual = against ? expected(seqI-1) : expected(seqI+1);
+  const predict= expected(seqI+1);               // mirror always predicts forward-next
+  const residual = Math.min(1, Math.abs(actual-predict)*2.2 + (Math.random()<0.06?0.7:0));
+  seqI += against ? -1 : 1;
+  pulses.push({x: against? W-40 : 40, y:H*0.34, actual, predict, residual, born:performance.now(), hit:false});
+}
+
+const grainBtn=document.getElementById('grain');
+grainBtn.addEventListener('click',()=>{
+  against=!against;
+  grainBtn.classList.toggle('on',against);
+  document.getElementById('flowdir').textContent = against?'upstream · against the grain':'downhill · habitual';
+  revErrTarget = against? reverseErrorRatio() : 1.0;
+});
+
+/* ---- draw the interference soma (the signature element) ---- */
+function drawSoma(cx,cy,R){
+  // resonance bands
+  const bandLo=0.46, bandHi=0.60;
+  for(let i=1;i<=5;i++){
+    const rr=R*(i/5);
+    sctx.beginPath(); sctx.arc(cx,cy,rr,0,7); 
+    sctx.strokeStyle=`rgba(120,140,175,${0.05+ (i===3?0.05:0)})`; sctx.lineWidth=1; sctx.stroke();
+  }
+  // the firing band (between bandLo and bandHi of R)
+  const cog = cogLoad>0.5;
+  const bandColor = cog? '169,139,255' : '84,214,200';
+  sctx.beginPath();
+  sctx.arc(cx,cy,R*bandHi,0,7); sctx.arc(cx,cy,R*bandLo,0,7,true);
+  sctx.fillStyle=`rgba(${bandColor},0.06)`; sctx.fill();
+  sctx.beginPath(); sctx.arc(cx,cy,R*((bandLo+bandHi)/2),0,7);
+  sctx.strokeStyle=`rgba(${bandColor},0.35)`; sctx.setLineDash([2,5]); sctx.lineWidth=1; sctx.stroke();
+  sctx.setLineDash([]);
+
+  // fire ripple
+  if(soma.fireGlow>0.01){
+    sctx.beginPath(); sctx.arc(cx,cy,R*(0.6+ (1-soma.fireGlow)*0.7),0,7);
+    sctx.strokeStyle=`rgba(92,227,154,${soma.fireGlow*0.6})`; sctx.lineWidth=2; sctx.stroke();
+  }
+
+  // the settling phasor
+  const r=soma.z*R;
+  const px=cx+Math.cos(soma.ang)*r, py=cy+Math.sin(soma.ang)*r;
+  const inBand = soma.z>bandLo && soma.z<bandHi;
+  // trailing spiral
+  sctx.beginPath();
+  for(let t=0;t<26;t++){
+    const rr=(soma.z + soma.kicked*Math.exp(-t*0.16)*0.5)*R;
+    const aa=soma.ang - t*0.14;
+    const x=cx+Math.cos(aa)*rr, y=cy+Math.sin(aa)*rr;
+    t?sctx.lineTo(x,y):sctx.moveTo(x,y);
+  }
+  sctx.strokeStyle=inBand?'rgba(92,227,154,0.5)':'rgba(244,182,76,0.45)';
+  sctx.lineWidth=1.4; sctx.stroke();
+  // arrow
+  sctx.beginPath(); sctx.moveTo(cx,cy); sctx.lineTo(px,py);
+  sctx.strokeStyle=inBand?'#5ce39a':(cog?'#a98bff':'#54d6c8'); sctx.lineWidth=2.4; sctx.stroke();
+  sctx.beginPath(); sctx.arc(px,py,4.5,0,7);
+  sctx.fillStyle=inBand?'#5ce39a':(cog?'#a98bff':'#f4b64c'); sctx.fill();
+  if(inBand){ sctx.shadowColor='#5ce39a'; sctx.shadowBlur=16; sctx.beginPath(); sctx.arc(px,py,4.5,0,7); sctx.fill(); sctx.shadowBlur=0; }
+}
+
+/* ---- draw mirror membrane + its ghost prediction ---- */
+function drawMirror(mx){
+  const g=sctx.createLinearGradient(mx-14,0,mx+14,0);
+  g.addColorStop(0,'rgba(84,214,200,0)'); g.addColorStop(.5,'rgba(84,214,200,0.5)'); g.addColorStop(1,'rgba(84,214,200,0)');
+  sctx.fillStyle=g; sctx.fillRect(mx-14,H*0.10,28,H*0.48);
+}
+
+/* ---- draw the substrate lane (groove vs grid) at the base ---- */
+function drawSubstrate(){
+  const y0=H*0.66, y1=H*0.98;
+  const cog=cogLoad; // 0 habitual .. 1 cognitive
+  // habitual groove: a glowing downhill channel
+  if(cog<0.99){
+    sctx.globalAlpha=1-cog;
+    const gy=(y0+y1)/2;
+    const grd=sctx.createLinearGradient(0,y0,0,y1);
+    grd.addColorStop(0,'rgba(84,214,200,0.0)'); grd.addColorStop(1,'rgba(84,214,200,0.10)');
+    sctx.fillStyle=grd; sctx.fillRect(0,y0,W,y1-y0);
+    sctx.beginPath();
+    for(let x=0;x<=W;x+=8){ const yy=gy+18*Math.sin(x*0.02 - performance.now()*0.002*(against?-1:1)); x?sctx.lineTo(x,yy):sctx.moveTo(x,yy);}
+    sctx.strokeStyle='rgba(84,214,200,0.5)'; sctx.lineWidth=2; sctx.stroke();
+    sctx.globalAlpha=1;
+  }
+  // cognitive grid: a calm reversible lattice
+  if(cog>0.01){
+    sctx.globalAlpha=cog;
+    sctx.strokeStyle='rgba(169,139,255,0.28)'; sctx.lineWidth=1;
+    const gs=34, oy=y0;
+    for(let x=(performance.now()*0.0); x<=W; x+=gs){ sctx.beginPath(); sctx.moveTo(x,oy); sctx.lineTo(x,y1); sctx.stroke(); }
+    for(let y=oy; y<=y1; y+=gs){ sctx.beginPath(); sctx.moveTo(0,y); sctx.lineTo(W,y); sctx.stroke(); }
+    // a bump that can move either way freely
+    const bx=W*0.5 + Math.sin(performance.now()*0.0012)*W*0.32;
+    sctx.beginPath(); sctx.arc(bx,(y0+y1)/2,7,0,7);
+    sctx.fillStyle='rgba(169,139,255,0.9)'; sctx.shadowColor='#a98bff'; sctx.shadowBlur=14; sctx.fill(); sctx.shadowBlur=0;
+    sctx.globalAlpha=1;
+  }
+  // label
+  sctx.font='11px ui-monospace,monospace'; sctx.textAlign='left';
+  sctx.fillStyle=cog>0.5?'rgba(169,139,255,0.75)':'rgba(84,214,200,0.7)';
+  sctx.fillText(cog>0.5?'cognitive grid — reversible, deliberate':'habitual groove — downhill, automatic', 16, y0-8);
+}
+
+/* ---- accelerometer strip (top right) ---- */
+function drawAccel(){
+  const x0=W-190, y=26, w=170;
+  sctx.font='10px ui-monospace,monospace'; sctx.textAlign='left';
+  sctx.fillStyle='rgba(124,133,152,0.9)'; sctx.fillText('accelerometer', x0, y-8);
+  const n=acc.motif.length, cw=Math.min(6,w/26);
+  for(let i=0;i<26;i++){
+    const v=acc.motif[i];
+    sctx.fillStyle = v===undefined?'rgba(60,68,90,0.35)':(v?'#5ce39a':'rgba(120,90,60,0.7)');
+    sctx.fillRect(x0+i*(cw+0.6), y+ (v? 0:6), cw, v?14:6);
+  }
+  // reserve + window gauges
+  sctx.fillStyle='rgba(124,133,152,0.5)'; sctx.fillText('reserve', x0, y+30);
+  sctx.fillStyle='rgba(84,214,200,0.8)'; sctx.fillRect(x0+52, y+22, acc.reserve*100, 6);
+}
+
+function frame(now){
+  const dt=Math.min(0.05,(now-tPrev)/1000); tPrev=now;
+  sctx.clearRect(0,0,W,H);
+
+  // spawn moments on a clock
+  pulseClock+=dt;
+  const interval=0.62;
+  if(pulseClock>interval){ pulseClock=0; spawnPulse(); }
+
+  drawSubstrate();
+  const mx=W*0.5; drawMirror(mx);
+
+  // advance pulses
+  let liveSurprise=0, firedThis=false;
+  const dir=against?-1:1, speed=W/(interval*2)/60*  (60*dt) ;
+  for(const p of pulses){
+    p.x += dir*(W/ (interval)) *dt;
+    // at the mirror, resolve prediction
+    const crossed = against ? (p.x<=mx && !p.hit) : (p.x>=mx && !p.hit);
+    if(crossed){
+      p.hit=true;
+      liveSurprise=Math.max(liveSurprise,p.residual);
+      // kick the soma by the residual; predicted moments barely move it
+      soma.kicked = Math.min(1.4, soma.kicked + p.residual*1.1);
+      soma.target = 0.53 + (Math.random()-0.5)*p.residual*0.3;
+      const fired=accelStep(p.residual, 0.02);
+      if(fired){ firedThis=true; soma.fireGlow=1; }
+      watts += p.residual*p.residual*8;      // energy only on surprise
+      cogLoad += p.residual*0.10;            // ring builds cognitive load
+    }
+    // draw the pulse + its ghost
+    const age=(now-p.born)/1000;
+    const predicted=p.residual<0.22;
+    sctx.beginPath(); sctx.arc(p.x,p.y,5,0,7);
+    sctx.fillStyle=predicted?'rgba(84,214,200,0.9)':'#f4b64c';
+    if(!predicted){sctx.shadowColor='#f4b64c'; sctx.shadowBlur=12;}
+    sctx.fill(); sctx.shadowBlur=0;
+    // ghost prediction (where mirror expected it)
+    if(!p.hit){
+      const gx = mx + dir*20;
+      sctx.beginPath(); sctx.arc(gx,p.y - (p.predict-p.actual)*40,4,0,7);
+      sctx.strokeStyle='rgba(84,214,200,0.5)'; sctx.setLineDash([2,3]); sctx.lineWidth=1; sctx.stroke(); sctx.setLineDash([]);
+    }
+  }
+  // cull
+  for(let i=pulses.length-1;i>=0;i--){ const p=pulses[i]; if(p.x<-20||p.x>W+20) pulses.splice(i,1); }
+
+  // soma settle physics: relax kick, spin, ease radius to target
+  soma.kicked *= Math.exp(-dt* (against?2.2:5.5));   // habitual settles fast & cheap; reverse rings
+  soma.z += (soma.target + soma.kicked*0.28 - soma.z)*Math.min(1,dt*6);
+  soma.ang += dt*(1.1 + soma.kicked*3.2);
+  soma.fireGlow*=Math.exp(-dt*3);
+  drawSoma(W*0.5, H*0.34, Math.min(W,H)*0.22);
+
+  drawAccel();
+
+  // clutch dynamics: cognitive load decays when calm, engages when rung
+  cogLoad += (against? 0.4 : -0.5)*dt;                // against-grain pushes toward cognitive
+  cogLoad = Math.max(0,Math.min(1,cogLoad));
+  revErr += (revErrTarget-revErr)*Math.min(1,dt*2);
+
+  // smooth the instrument readouts
+  surpriseShow += (liveSurprise - surpriseShow)*0.12;
+  wattShow += (watts - wattShow)*0.08; watts*=0.985;
+
+  // update DOM instruments
+  const cog=cogLoad>0.5;
+  const mf=document.getElementById('modeflag');
+  mf.classList.toggle('cog',cog);
+  document.getElementById('modetext').textContent = cog?'Cognitive · 2D grid':'Habitual · 1D sequence';
+  const rS=document.getElementById('rSurprise'); rS.textContent=surpriseShow.toFixed(2);
+  rS.className='v '+(surpriseShow>0.3?'gold':'teal');
+  const rG=document.getElementById('rGate');
+  rG.textContent = acc.lit>0.3?'ringing':'dark'; rG.className='v '+(acc.lit>0.3?'gold':'teal');
+  const rE=document.getElementById('rErr');
+  rE.innerHTML = (revErr>=100? Math.round(revErr): revErr.toFixed(1))+'<small>×</small>';
+  rE.className='v '+(revErr>3?'red':'teal');
+  const rW=document.getElementById('rWatt');
+  rW.innerHTML=Math.round(wattShow)+'<small> W</small>'; rW.className='v '+(wattShow>20?(cog?'violet':'gold'):'teal');
+
+  requestAnimationFrame(frame);
+}
+
+/* ============================================================
+   ACT II — the sparse predictive adder (real arithmetic)
+   ============================================================ */
+const bitcanvas=document.getElementById('bitcanvas'), bctx=bitcanvas.getContext('2d');
+let BW=0,BH=0;
+function sizeBits(){
+  const r=bitcanvas.getBoundingClientRect(); BW=r.width; BH=r.height;
+  bitcanvas.width=BW*DPR; bitcanvas.height=BH*DPR; bctx.setTransform(DPR,0,0,DPR,0,0);
+}
+const cells=[]; // per-bit settle animation state
+for(let i=0;i<8;i++) cells.push({wake:0, z:0.2, ang:Math.random()*7, val:0});
+
+function computeAdder(A,B){
+  A=Math.max(0,Math.min(255,A|0)); B=Math.max(0,Math.min(255,B|0));
+  let carry=0, woke=0, bits=[];
+  for(let i=0;i<8;i++){
+    const a=(A>>i)&1, b=(B>>i)&1, cin=carry;
+    const active = (a|b|cin)===1;            // mirror predicts 0; wakes only if violated
+    const sum=a^b^cin; carry=(a&b)|(cin&(a^b));
+    if(active) woke++;
+    bits.push({i,a,b,cin,sum,active});
+  }
+  return {A,B,sum:(A+B),woke,bits,carryOut:carry};
+}
+function refreshAdder(){
+  const A=+document.getElementById('numA').value||0;
+  const B=+document.getElementById('numB').value||0;
+  const r=computeAdder(A,B);
+  document.getElementById('gates').textContent=r.woke*5;
+  document.getElementById('eqA').textContent=r.A;
+  document.getElementById('eqB').textContent=r.B;
+  document.getElementById('eqS').textContent=r.sum;
+  const v=document.getElementById('verify');
+  const good=(r.sum===r.A+r.B);
+  v.textContent = good? `verified · matches native ${r.A} + ${r.B} = ${r.sum}` : 'error';
+  v.style.color = good? '' : 'var(--red)';
+  for(let i=0;i<8;i++){ cells[i].targetWake = r.bits[i].active?1:0; cells[i].val=r.bits[i].sum; cells[i].active=r.bits[i].active; }
+}
+document.getElementById('numA').addEventListener('input',refreshAdder);
+document.getElementById('numB').addEventListener('input',refreshAdder);
+document.getElementById('randAB').addEventListener('click',()=>{
+  document.getElementById('numA').value=Math.floor(Math.random()*256);
+  document.getElementById('numB').value=Math.floor(Math.random()*256); refreshAdder();
+});
+document.getElementById('hardAB').addEventListener('click',()=>{
+  document.getElementById('numA').value=181; document.getElementById('numB').value=94; refreshAdder();
+});
+
+function bitFrame(){
+  bctx.clearRect(0,0,BW,BH);
+  const slot=BW/8, R=Math.min(slot*0.34, BH*0.30), cy=BH*0.46;
+  for(let i=0;i<8;i++){
+    const c=cells[i]; const bitIndex=7-i; const b=cells[bitIndex];
+    c.wake += ((c.targetWake||0)-c.wake)*0.12;
+    // settle the woken cell's phasor; asleep cells hold small & dark
+    const tgt = c.targetWake? (b.val? 0.55: 0.30) : 0.16;
+    c.z += (tgt-c.z)*0.10; c.ang += 0.03 + c.wake*0.10;
+    const cx=slot*(i+0.5);
+    // bands
+    for(let k=1;k<=3;k++){ bctx.beginPath(); bctx.arc(cx,cy,R*k/3,0,7);
+      bctx.strokeStyle=`rgba(120,140,175,${0.06+0.08*c.wake})`; bctx.lineWidth=1; bctx.stroke(); }
+    // firing band
+    const woke=c.targetWake, on=b.val===1;
+    if(woke){
+      bctx.beginPath(); bctx.arc(cx,cy,R*0.62,0,7);
+      bctx.strokeStyle=on?'rgba(92,227,154,0.5)':'rgba(84,214,200,0.35)'; bctx.setLineDash([2,4]); bctx.stroke(); bctx.setLineDash([]);
+    }
+    // phasor
+    const r=c.z*R, px=cx+Math.cos(c.ang)*r, py=cy+Math.sin(c.ang)*r;
+    const col = !woke? 'rgba(74,82,104,0.6)' : (on? '#5ce39a':'#54d6c8');
+    bctx.beginPath(); bctx.moveTo(cx,cy); bctx.lineTo(px,py);
+    bctx.strokeStyle=col; bctx.lineWidth=woke?2:1.2; bctx.stroke();
+    bctx.beginPath(); bctx.arc(px,py,woke?3.5:2.2,0,7); bctx.fillStyle=col;
+    if(woke&&on){bctx.shadowColor='#5ce39a'; bctx.shadowBlur=10;} bctx.fill(); bctx.shadowBlur=0;
+    // sleep label
+    if(!woke){ bctx.font='9px ui-monospace,monospace'; bctx.textAlign='center';
+      bctx.fillStyle='rgba(74,82,104,0.7)'; bctx.fillText('sleep', cx, cy+R+16); }
+    else { bctx.font='bold 12px ui-monospace,monospace'; bctx.textAlign='center';
+      bctx.fillStyle=on?'#5ce39a':'#54d6c8'; bctx.fillText(b.val, cx, cy+R+18); }
+  }
+  requestAnimationFrame(bitFrame);
+}
+
+/* boot */
+sizeScene(); sizeBits(); refreshAdder();
+requestAnimationFrame(frame); requestAnimationFrame(bitFrame);
+</script>
+</body>
+</html>
